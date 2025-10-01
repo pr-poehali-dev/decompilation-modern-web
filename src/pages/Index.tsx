@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import JSZip from 'jszip';
+import Header from '@/components/Header';
+import DecompilerTab from '@/components/DecompilerTab';
+import HistoryTab from '@/components/HistoryTab';
+import SettingsTab from '@/components/SettingsTab';
 
 interface DecompileHistory {
   id: string;
@@ -74,7 +74,7 @@ export default function Index() {
     }
     
     const methodMatches = bytecode.match(/Method\s+(\w+)/g) || [];
-    methodMatches.forEach((match, idx) => {
+    methodMatches.forEach((match) => {
       const methodName = match.replace('Method ', '');
       if (methodName !== '<init>' && methodName !== 'main') {
         lines.push(`    public void ${methodName}() {`);
@@ -137,7 +137,7 @@ export default function Index() {
         const contents = await zip.loadAsync(file);
         
         const classFiles: string[] = [];
-        contents.forEach((relativePath, file) => {
+        contents.forEach((relativePath) => {
           if (relativePath.endsWith('.class')) {
             classFiles.push(relativePath);
           }
@@ -282,32 +282,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <Icon name="Code2" size={24} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">JavaDecompiler</h1>
-              <p className="text-xs text-muted-foreground">Modern Java Decompiler</p>
-            </div>
-          </div>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleTheme}
-            className="rounded-full transition-transform hover:scale-110"
-          >
-            {theme === 'light' ? (
-              <Icon name="Moon" size={20} />
-            ) : (
-              <Icon name="Sun" size={20} />
-            )}
-          </Button>
-        </div>
-      </header>
+      <Header theme={theme} onToggleTheme={toggleTheme} />
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="decompiler" className="w-full">
@@ -326,260 +301,37 @@ export default function Index() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="decompiler" className="space-y-6 animate-fade-in">
-            <Card
-              className={`p-8 border-2 border-dashed transition-all duration-300 ${
-                isDragging ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border'
-              }`}
+          <TabsContent value="decompiler">
+            <DecompilerTab
+              isDragging={isDragging}
+              isProcessing={isProcessing}
+              jarFiles={jarFiles}
+              selectedJarFile={selectedJarFile}
+              decompiledCode={decompiledCode}
+              selectedFile={selectedFile}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-            >
-              <div className="text-center space-y-4">
-                <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <Icon name="Upload" size={40} className="text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">
-                    Загрузите файл для декомпиляции
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Перетащите .jar или .class файл сюда или нажмите кнопку
-                  </p>
-                </div>
-                <div className="flex gap-3 justify-center">
-                  <Button
-                    onClick={() => document.getElementById('file-input')?.click()}
-                    className="gap-2"
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Icon name="Loader2" size={18} className="animate-spin" />
-                        Обработка...
-                      </>
-                    ) : (
-                      <>
-                        <Icon name="FileUp" size={18} />
-                        Выбрать файл
-                      </>
-                    )}
-                  </Button>
-                  <input
-                    id="file-input"
-                    type="file"
-                    accept=".jar,.class"
-                    className="hidden"
-                    onChange={handleFileInput}
-                  />
-                </div>
-              </div>
-            </Card>
-
-            {jarFiles.length > 0 && (
-              <Card className="p-6 animate-scale-in">
-                <div className="flex items-center gap-2 mb-4">
-                  <Icon name="FolderTree" size={20} className="text-primary" />
-                  <h3 className="font-semibold text-foreground">Содержимое JAR архива</h3>
-                  <span className="text-sm text-muted-foreground">({jarFiles.length} файлов)</span>
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-1">
-                  {jarFiles.map((file) => (
-                    <button
-                      key={file}
-                      onClick={() => selectJarFile(file)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                        selectedJarFile === file
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-muted'
-                      }`}
-                    >
-                      {file}
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {decompiledCode && (
-              <Card className="p-6 animate-scale-in">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Icon name="FileCode" size={20} className="text-primary" />
-                    <h3 className="font-semibold text-foreground">
-                      {selectedJarFile || selectedFile?.name || 'Декомпилированный код'}
-                    </h3>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={copyToClipboard}>
-                      <Icon name="Copy" size={16} />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={downloadCode}>
-                      <Icon name="Download" size={16} />
-                    </Button>
-                  </div>
-                </div>
-                <div className="rounded-lg bg-code p-4 overflow-x-auto max-h-[600px] overflow-y-auto">
-                  <pre className="text-sm text-code-foreground font-mono leading-relaxed">
-                    {decompiledCode}
-                  </pre>
-                </div>
-              </Card>
-            )}
+              onFileInput={handleFileInput}
+              onSelectJarFile={selectJarFile}
+              onCopyToClipboard={copyToClipboard}
+              onDownloadCode={downloadCode}
+            />
           </TabsContent>
 
-          <TabsContent value="history" className="animate-fade-in">
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Icon name="History" size={24} className="text-primary" />
-                  <h2 className="text-2xl font-bold text-foreground">История декомпиляций</h2>
-                </div>
-                {history.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setHistory([])}
-                    className="gap-2"
-                  >
-                    <Icon name="Trash2" size={16} />
-                    Очистить
-                  </Button>
-                )}
-              </div>
-              
-              {history.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <Icon name="FileX" size={64} className="mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium">История пуста</p>
-                  <p className="text-sm mt-2">Декомпилируйте файлы для отображения истории</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {history.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => loadHistoryItem(item)}
-                      className="text-left p-4 rounded-lg border border-border hover:bg-accent hover:border-primary transition-all duration-200 group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                          <Icon name="FileCode" size={20} className="text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground truncate mb-1">
-                            {item.fileName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.timestamp.toLocaleString('ru-RU')}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.fileSize}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
+          <TabsContent value="history">
+            <HistoryTab
+              history={history}
+              onLoadHistoryItem={loadHistoryItem}
+              onClearHistory={() => setHistory([])}
+            />
           </TabsContent>
 
-          <TabsContent value="settings" className="animate-fade-in">
-            <Card className="p-6 max-w-2xl mx-auto">
-              <div className="flex items-center gap-2 mb-6">
-                <Icon name="Settings" size={24} className="text-primary" />
-                <h2 className="text-2xl font-bold text-foreground">Настройки декомпиляции</h2>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="flex items-center justify-between py-4 border-b border-border">
-                  <div className="space-y-1">
-                    <Label htmlFor="line-numbers" className="text-base font-medium">
-                      Показывать номера строк
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Добавляет нумерацию строк в декомпилированный код
-                    </p>
-                  </div>
-                  <Switch
-                    id="line-numbers"
-                    checked={settings.showLineNumbers}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, showLineNumbers: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-4 border-b border-border">
-                  <div className="space-y-1">
-                    <Label htmlFor="inline-methods" className="text-base font-medium">
-                      Упрощать простые методы
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Встраивает простые методы для улучшения читаемости
-                    </p>
-                  </div>
-                  <Switch
-                    id="inline-methods"
-                    checked={settings.inlineSimpleMethods}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, inlineSimpleMethods: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-4 border-b border-border">
-                  <div className="space-y-1">
-                    <Label htmlFor="remove-comments" className="text-base font-medium">
-                      Удалять комментарии
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Убирает автоматически сгенерированные комментарии
-                    </p>
-                  </div>
-                  <Switch
-                    id="remove-comments"
-                    checked={settings.removeComments}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, removeComments: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="simplify" className="text-base font-medium">
-                      Упрощать выражения
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Применяет оптимизации для более читаемого кода
-                    </p>
-                  </div>
-                  <Switch
-                    id="simplify"
-                    checked={settings.simplifyExpressions}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, simplifyExpressions: checked })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8 p-4 bg-muted rounded-lg">
-                <div className="flex gap-3">
-                  <Icon name="Info" size={20} className="text-primary flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground mb-1">
-                      Информация о декомпиляции
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Декомпиляция происходит полностью в браузере. Ваши файлы не загружаются на сервер и остаются конфиденциальными.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Card>
+          <TabsContent value="settings">
+            <SettingsTab
+              settings={settings}
+              onUpdateSettings={setSettings}
+            />
           </TabsContent>
         </Tabs>
       </main>
